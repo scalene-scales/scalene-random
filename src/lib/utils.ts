@@ -1,4 +1,5 @@
 import { NonEmptyArray } from "ts-essentials";
+import { v4 as uuidv4 } from "uuid";
 import * as PRNG from "../prng/Alea";
 
 type TAleaEncodedState = string & { __type: "AleaEncodedState" };
@@ -27,7 +28,7 @@ function encodeSplitSeed(aleaState: TAleaState): TSplitSeed {
 }
 
 function initSeed(): TInitialSeed {
-  return PRNG.encode(PRNG.init(crypto.randomUUID())) as unknown as TInitialSeed;
+  return PRNG.encode(PRNG.init(uuidv4())) as unknown as TInitialSeed;
 }
 
 function fixedSeed(name: string): TInitialSeed {
