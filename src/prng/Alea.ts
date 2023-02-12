@@ -1,6 +1,6 @@
 import {
-  decodeBase64StringAsDoubleArray,
-  encodeDoubleArrayAsBase64String,
+  decodeBase64StringAsUint32Array,
+  encodeUint32ArrayAsBase64String,
 } from "@scalene-scales/scalene-binary/dist/lib";
 
 type TAleaEncodedState = string & { __type: "AleaEncodedState" };
@@ -160,11 +160,23 @@ function split(state: TAleaState): [TAleaState, TAleaState] {
 }
 
 function encodeAlea(state: TAleaState): TAleaEncodedState {
-  return encodeDoubleArrayAsBase64String(state) as TAleaEncodedState;
+  return encodeUint32ArrayAsBase64String([
+    state[0] * TWO_RAISED_TO_32,
+    state[1] * TWO_RAISED_TO_32,
+    state[2] * TWO_RAISED_TO_32,
+    state[3],
+  ]) as TAleaEncodedState;
 }
 
 function decodeAlea(encoding: TAleaEncodedState): TAleaState {
-  return decodeBase64StringAsDoubleArray(encoding) as TAleaState;
+  const uint32State = decodeBase64StringAsUint32Array(encoding);
+
+  return [
+    uint32State[0]! * TWO_RAISED_TO_NEGATIVE_32,
+    uint32State[1]! * TWO_RAISED_TO_NEGATIVE_32,
+    uint32State[2]! * TWO_RAISED_TO_NEGATIVE_32,
+    uint32State[3]!,
+  ];
 }
 
 export { seedAlea as init };
