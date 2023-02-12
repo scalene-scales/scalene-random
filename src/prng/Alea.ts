@@ -1,0 +1,233 @@
+import {
+  decodeBase64StringAsDoubleArray,
+  encodeDoubleArrayAsBase64String,
+} from "@scalene-scales/scalene-binary/dist/lib";
+
+type TAleaEncodedState = string & { __type: "AleaEncodedState" };
+type TAleaState = [s0: number, s1: number, s2: number, c: number];
+
+const N = 0xefc8249d;
+const SPACE_CHAR_CODE = 32;
+const TWO_RAISED_TO_32 = 0x100000000; // 2^32
+const TWO_RAISED_TO_NEGATIVE_32 = 2.3283064365386963e-10; // 2^-32
+const TWO_RAISED_TO_NEGATIVE_53 = 1.1102230246251565e-16; // 2^-53
+
+function mashCharCode(n: number, charCode: number): number {
+  n += charCode;
+  let h = 0.02519603282416938 * n;
+  n = h >>> 0;
+  h -= n;
+  h *= n;
+  n = h >>> 0;
+  h -= n;
+  n += h * TWO_RAISED_TO_32;
+
+  return n;
+}
+
+function mashString(n: number, seed: string): number {
+  for (let i = 0; i < seed.length; i++) {
+    n = mashCharCode(n, seed.charCodeAt(i));
+  }
+  return n;
+}
+
+function mashValue(n: number): number {
+  return (n >>> 0) * TWO_RAISED_TO_NEGATIVE_32;
+}
+
+function seedAlea(seed: string): TAleaState {
+  let s0 = 0;
+  let s1 = 0;
+  let s2 = 0;
+  let c = 1;
+
+  let n = N;
+
+  n = mashCharCode(n, SPACE_CHAR_CODE);
+  s0 = mashValue(n);
+  n = mashCharCode(n, SPACE_CHAR_CODE);
+  s1 = mashValue(n);
+  n = mashCharCode(n, SPACE_CHAR_CODE);
+  s2 = mashValue(n);
+
+  n = mashString(n, seed);
+  s0 -= mashValue(n);
+  if (s0 < 0) {
+    s0 += 1;
+  }
+  n = mashString(n, seed);
+  s1 -= mashValue(n);
+  if (s1 < 0) {
+    s1 += 1;
+  }
+  n = mashString(n, seed);
+  s2 -= mashValue(n);
+  if (s2 < 0) {
+    s2 += 1;
+  }
+
+  return [s0, s1, s2, c];
+}
+
+function nextAlea(state: TAleaState): TAleaState {
+  let s0 = state[0];
+  let s1 = state[1];
+  let s2 = state[2];
+  let c = state[3];
+
+  let t = 2091639 * s0 + c * TWO_RAISED_TO_NEGATIVE_32;
+  s0 = s1;
+  s1 = s2;
+  c = t | 0;
+  s2 = t - c;
+
+  return [s0, s1, s2, c];
+}
+
+function currentValue(state: TAleaState): number {
+  return state[2];
+}
+
+function currentUint32Value(state: TAleaState): number {
+  return state[2] * TWO_RAISED_TO_32;
+}
+
+function uint32(state: TAleaState): [TAleaState, number] {
+  state = nextAlea(state);
+  return [state, currentUint32Value(state)];
+}
+
+function int32(state: TAleaState): [TAleaState, number] {
+  state = nextAlea(state);
+  const value = currentValue(state);
+  return [state, (value * TWO_RAISED_TO_32) | 0];
+}
+
+function fract53Value(low32: number, high32: number): number {
+  return low32 + ((high32 * 0x200000) | 0) * TWO_RAISED_TO_NEGATIVE_53;
+}
+
+function fract53(state: TAleaState): [TAleaState, number] {
+  state = nextAlea(state);
+  const low32 = currentValue(state);
+  state = nextAlea(state);
+  const high32 = currentValue(state);
+
+  return [state, fract53Value(low32, high32)];
+}
+
+function range(
+  state: TAleaState,
+  maxValue: number,
+  minValue: number = 0
+): [TAleaState, number] {
+  const [nextAlea, uint32Value] = uint32(state);
+
+  const rngValue = uint32Value / TWO_RAISED_TO_32;
+  return [nextAlea, Math.floor(minValue + rngValue * (maxValue - minValue))];
+}
+
+function split(state: TAleaState): [TAleaState, TAleaState] {
+  let low32;
+  let high32;
+
+  state = nextAlea(state);
+  low32 = currentValue(state);
+  state = nextAlea(state);
+  high32 = currentValue(state);
+  const s0 = fract53Value(low32, high32);
+
+  state = nextAlea(state);
+  low32 = currentValue(state);
+  state = nextAlea(state);
+  high32 = currentValue(state);
+  const s1 = fract53Value(low32, high32);
+
+  state = nextAlea(state);
+  low32 = currentValue(state);
+  state = nextAlea(state);
+  high32 = currentValue(state);
+  const s2 = fract53Value(low32, high32);
+
+  state = nextAlea(state);
+  low32 = currentValue(state);
+  state = nextAlea(state);
+  high32 = currentValue(state);
+  const c = fract53Value(low32, high32);
+
+  return [state, [s0, s1, s2, c]];
+}
+
+function encodeAlea(state: TAleaState): TAleaEncodedState {
+  return encodeDoubleArrayAsBase64String(state) as TAleaEncodedState;
+}
+
+function decodeAlea(encoding: TAleaEncodedState): TAleaState {
+  return decodeBase64StringAsDoubleArray(encoding) as TAleaState;
+}
+
+export { seedAlea as init };
+export { nextAlea as next };
+export { currentValue as value };
+export { uint32 as uint32 };
+export { int32 as int32 };
+export { fract53 as fract53 };
+export { range as range };
+export { split as split };
+export { encodeAlea as encode };
+export { decodeAlea as decode };
+
+export default class Alea {
+  private state: TAleaState;
+
+  constructor(seed: string | TAleaState) {
+    if (Array.isArray(seed)) {
+      this.state = seed;
+    } else {
+      this.state = seedAlea(seed);
+    }
+  }
+
+  random(): number {
+    this.state = nextAlea(this.state);
+    return currentValue(this.state);
+  }
+
+  uint32(): number {
+    return this.random() * TWO_RAISED_TO_32;
+  }
+
+  int32(): number {
+    return this.uint32() | 0;
+  }
+
+  fract53(): number {
+    return (
+      this.random() +
+      ((this.random() * 0x200000) | 0) * TWO_RAISED_TO_NEGATIVE_53
+    );
+  }
+
+  range(maxValue: number, minValue: number = 0): number {
+    const rngValue = this.uint32() / TWO_RAISED_TO_32;
+    return Math.floor(minValue + rngValue * (maxValue - minValue));
+  }
+
+  split(): Alea {
+    const s0 = this.fract53();
+    const s1 = this.fract53();
+    const s2 = this.fract53();
+    const c = this.fract53();
+
+    return new Alea([s0, s1, s2, c]);
+  }
+
+  encode(): TAleaEncodedState {
+    return encodeAlea(this.state);
+  }
+
+  static fromEncoding(encoding: TAleaEncodedState): Alea {
+    return new Alea(decodeAlea(encoding));
+  }
+}

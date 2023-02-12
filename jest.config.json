@@ -1,0 +1,26 @@
+{
+  "clearMocks": true,
+  "collectCoverage": false,
+  "coverageDirectory": "coverage",
+  "coveragePathIgnorePatterns": ["/node_modules/", "/dist/"],
+  "moduleDirectories": ["node_modules", "src"],
+  "moduleFileExtensions": [
+    "js",
+    "mjs",
+    "cjs",
+    "jsx",
+    "ts",
+    "tsx",
+    "json",
+    "node"
+  ],
+  "roots": ["src"],
+  "testMatch": [
+    "**/__tests__/**/*.[jt]s?(x)",
+    "**/?(*.)+(spec|test).[tj]s?(x)"
+  ],
+  "testPathIgnorePatterns": ["/node_modules/", "/dist/"],
+  "transform": {
+    "^.+\\.[t|j]sx?$": "babel-jest"
+  }
+}
