@@ -48,7 +48,8 @@
     "url": "git+https://github.com/scalene-scales/scalene-random.git"
   },
   "dependencies": {
-    "@scalene-scales/scalene-binary": "github:scalene-scales/scalene-binary"
+    "@scalene-scales/scalene-binary": "github:scalene-scales/scalene-binary",
+    "uuid": "^9.0.0"
   },
   "bugs": {
     "url": "https://github.com/scalene-scales/scalene-random/issues"
