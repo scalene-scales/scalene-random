@@ -1,42 +1,42 @@
-import * as AleaUtils from "prng/Alea";
 import { NonEmptyArray } from "ts-essentials";
+import * as PRNG from "../prng/Alea";
 
 type TAleaEncodedState = string & { __type: "AleaEncodedState" };
 type TAleaState = [s0: number, s1: number, s2: number, c: number];
 
 // TODO: Figure out how to make these global types.
-type TInitialSeed = string & { __id: "InitialSeed" };
-type TNextSeed = (string & { __id: "NextSeed" }) | TInitialSeed;
-type TSplitSeed = (string & { __id: "SplitSeed" }) | TInitialSeed;
-type TSeed = TNextSeed | TSplitSeed;
+export type TBase100Probability = number & { __type: "Base100Probability" };
 
-type TBase100Probability = number & { __type: "Base100Probability" };
+export type TInitialSeed = string & { __id: "InitialSeed" };
+export type TNextSeed = (string & { __id: "NextSeed" }) | TInitialSeed;
+export type TSplitSeed = (string & { __id: "SplitSeed" }) | TInitialSeed;
+export type TSeed = TNextSeed | TSplitSeed;
+
+export type TRandomUtilsWrapper = Wrapper<{ seed: TSeed }>;
 
 function decode(seed: TSeed): TAleaState {
-  return AleaUtils.decode(seed as unknown as TAleaEncodedState);
+  return PRNG.decode(seed as unknown as TAleaEncodedState);
 }
 
 function encodeNextSeed(aleaState: TAleaState): TNextSeed {
-  return AleaUtils.encode(aleaState) as unknown as TNextSeed;
+  return PRNG.encode(aleaState) as unknown as TNextSeed;
 }
 
 function encodeSplitSeed(aleaState: TAleaState): TSplitSeed {
-  return AleaUtils.encode(aleaState) as unknown as TSplitSeed;
+  return PRNG.encode(aleaState) as unknown as TSplitSeed;
 }
 
 function initSeed(): TInitialSeed {
-  return AleaUtils.encode(
-    AleaUtils.init(crypto.randomUUID())
-  ) as unknown as TInitialSeed;
+  return PRNG.encode(PRNG.init(crypto.randomUUID())) as unknown as TInitialSeed;
 }
 
 function fixedSeed(name: string): TInitialSeed {
-  return AleaUtils.encode(AleaUtils.init(name)) as unknown as TInitialSeed;
+  return PRNG.encode(PRNG.init(name)) as unknown as TInitialSeed;
 }
 
 function splitSeed(seed: TSeed): [TNextSeed, TSplitSeed] {
   const alea = decode(seed);
-  const [nextAlea, splitAlea] = AleaUtils.split(alea);
+  const [nextAlea, splitAlea] = PRNG.split(alea);
 
   return [encodeNextSeed(nextAlea), encodeSplitSeed(splitAlea)];
 }
@@ -49,7 +49,7 @@ function splitWrappedSeed<T extends { seed: TSeed }>(wraper: T): TSplitSeed {
 
 function nextSeed(seed: TSeed): TNextSeed {
   const alea = decode(seed);
-  const nextAlea = AleaUtils.next(alea);
+  const nextAlea = PRNG.next(alea);
 
   return encodeNextSeed(nextAlea);
 }
@@ -60,7 +60,7 @@ function randomInt(
   minValue: number = 0
 ): [TNextSeed, number] {
   const alea = decode(seed);
-  const [nextAlea, intValue] = AleaUtils.range(alea, maxValue, minValue);
+  const [nextAlea, intValue] = PRNG.range(alea, maxValue, minValue);
 
   return [encodeNextSeed(nextAlea), intValue];
 }
@@ -254,7 +254,6 @@ class Wrapper<T extends { seed: TSeed }> {
     return retSeed;
   }
 }
-export type TRandomUtilsWrapper = Wrapper<{ seed: TSeed }>;
 
 function wrap<T extends { seed: TSeed }>(wrapped: T): TRandomUtilsWrapper {
   return new Wrapper(wrapped);

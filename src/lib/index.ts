@@ -1,2 +1,9 @@
-export { default as Utils } from "lib/utils";
-export type { TRandomUtilsWrapper } from "lib/utils";
+export { default as Utils } from "./utils";
+export type {
+  TBase100Probability,
+  TInitialSeed,
+  TNextSeed,
+  TRandomUtilsWrapper,
+  TSeed,
+  TSplitSeed,
+} from "./utils";
