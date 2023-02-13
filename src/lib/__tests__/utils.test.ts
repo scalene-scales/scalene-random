@@ -23,7 +23,7 @@ describe("RandomUtils should", () => {
       wrapped.randomInt(100),
       wrapped.randomInt(100),
       wrapped.randomInt(100),
-    ]).toEqual([54, 70, 72, 18, 40]);
+    ]).toEqual([42, 78, 60, 67, 51]);
   });
 
   it("splitting a seed should create diverging numbers immediately", () => {
@@ -116,7 +116,7 @@ describe("RandomUtils should", () => {
       counts[pick] = (counts[pick] ?? 0) + 1;
     }
 
-    expect(counts).toEqual({ "1": 47, "2": 53 });
+    expect(counts).toEqual({ "1": 57, "2": 43 });
   });
 
   it("weighted pick one should handle biased item collections", () => {
@@ -134,7 +134,7 @@ describe("RandomUtils should", () => {
       counts[pick] = (counts[pick] ?? 0) + 1;
     }
 
-    expect(counts).toEqual({ "1": 93, "2": 7 });
+    expect(counts).toEqual({ "1": 90, "2": 10 });
   });
 
   it("sampling non uniquely should handle empty populations", () => {
@@ -169,7 +169,7 @@ describe("RandomUtils should", () => {
       4
     );
 
-    expect(samples).toEqual([2, 3, 3, 0]);
+    expect(samples).toEqual([2, 3, 0, 2]);
   });
 
   it("sampling uniquely should not generate duplicates", () => {
@@ -178,7 +178,7 @@ describe("RandomUtils should", () => {
 
     const [_newSeed, samples] = RandomUtils.sampleUniquely(seed, population, 5);
 
-    expect(samples).toEqual([2, 3, 4, 1, 0]);
+    expect(samples).toEqual([2, 3, 0, 4, 1]);
   });
 
   it("sampling non uniquely should handle over population generation", () => {
@@ -191,7 +191,7 @@ describe("RandomUtils should", () => {
       10
     );
 
-    expect(samples).toEqual([2, 3, 3, 0, 2, 3, 1, 1, 4, 2]);
+    expect(samples).toEqual([2, 3, 0, 2, 1, 3, 0, 1, 0, 3]);
   });
 
   it("sampling uniquely should cap over popultion generation", () => {
@@ -204,6 +204,6 @@ describe("RandomUtils should", () => {
       10
     );
 
-    expect(samples).toEqual([2, 3, 4, 1, 0]);
+    expect(samples).toEqual([2, 3, 0, 4, 1]);
   });
 });

@@ -1,9 +1,37 @@
-import {
-  decodeBase64StringAsUint32Array,
-  encodeUint32ArrayAsBase64String,
-} from "@scalene-scales/scalene-binary/dist/lib";
+// Copyright (C) 2023 by Scalene Scales
+// Copyright (C) 2010 by Johannes Baagøe <baagoe@baagoe.org>
 
-type TAleaEncodedState = string & { __type: "AleaEncodedState" };
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+
+import {
+  decodeHexStringAsUint32Array,
+  encodeUint32ArrayAsHexString,
+} from "@scalene-scales/scalene-binary/dist/lib";
+import {
+  TWO_RAISED_TO_21,
+  TWO_RAISED_TO_32,
+  TWO_RAISED_TO_NEGATIVE_32,
+  TWO_RAISED_TO_NEGATIVE_53,
+} from "@scalene-scales/scalene-binary/dist/lib/constants";
+import { THexString_LengthMod8 } from "@scalene-scales/scalene-binary/dist/types";
+
+type TAleaEncodedState = THexString_LengthMod8 & { __type: "AleaEncodedState" };
 
 // Note, the state is represented by 3 32 bit decimals and a 32 bit uint.
 // Because 32 bit decimals take more bits to represent than 32 bit floats,
@@ -12,10 +40,6 @@ type TAleaState = [s0: number, s1: number, s2: number, c: number];
 
 const N = 0xefc8249d;
 const SPACE_CHAR_CODE = 32;
-const TWO_RAISED_TO_21 = 0x200000;
-const TWO_RAISED_TO_32 = 0x100000000; // 2^32
-const TWO_RAISED_TO_NEGATIVE_32 = 2.3283064365386963e-10; // 2^-32
-const TWO_RAISED_TO_NEGATIVE_53 = 1.1102230246251565e-16; // 2^-53
 
 function mashCharCode(n: number, charCode: number): number {
   n += charCode;
@@ -75,7 +99,7 @@ function seedAlea(seed: string): TAleaState {
   return [s0, s1, s2, c];
 }
 
-function nextAlea(state: TAleaState): TAleaState {
+function nextAlea(state: TAleaState): void {
   let s0 = state[0];
   let s1 = state[1];
   let s2 = state[2];
@@ -87,7 +111,10 @@ function nextAlea(state: TAleaState): TAleaState {
   c = t | 0;
   s2 = t - c;
 
-  return [s0, s1, s2, c];
+  state[0] = s0;
+  state[1] = s1;
+  state[2] = s2;
+  state[3] = c;
 }
 
 function currentValue(state: TAleaState): number {
@@ -95,46 +122,56 @@ function currentValue(state: TAleaState): number {
   return state[2];
 }
 
-function currentUint32Value(state: TAleaState): number {
-  return state[2] * TWO_RAISED_TO_32;
-}
-
-function uint32(state: TAleaState): [TAleaState, number] {
-  state = nextAlea(state);
-  return [state, currentUint32Value(state)];
-}
-
-function int32(state: TAleaState): [TAleaState, number] {
-  state = nextAlea(state);
+function random(state: TAleaState): number {
+  nextAlea(state);
   const value = currentValue(state);
-  return [state, (value * TWO_RAISED_TO_32) | 0];
+  return value;
+}
+
+function uint32(state: TAleaState): number {
+  nextAlea(state);
+  const value = currentValue(state);
+  return value * TWO_RAISED_TO_32;
+}
+
+function int32(state: TAleaState): number {
+  nextAlea(state);
+  const value = currentValue(state);
+  return (value * TWO_RAISED_TO_32) | 0;
 }
 
 function fract53Value(low32: number, high32: number): number {
+  // Note, the multiply only affects the high order bits because low32 and high32 are already decimal values.
   return low32 + ((high32 * TWO_RAISED_TO_21) | 0) * TWO_RAISED_TO_NEGATIVE_53;
 }
 
-function fract53(state: TAleaState): [TAleaState, number] {
-  state = nextAlea(state);
+function fract53(state: TAleaState): number {
+  nextAlea(state);
   const low32 = currentValue(state);
-  state = nextAlea(state);
+  nextAlea(state);
   const high32 = currentValue(state);
 
-  return [state, fract53Value(low32, high32)];
+  return fract53Value(low32, high32);
 }
 
 function range(
   state: TAleaState,
   maxValue: number,
   minValue: number = 0
-): [TAleaState, number] {
-  const [nextAlea, uint32Value] = uint32(state);
+): number {
+  const bound = maxValue - minValue;
+  const threshold = maxValue % bound;
 
-  const rngValue = uint32Value * TWO_RAISED_TO_NEGATIVE_32;
-  return [nextAlea, Math.floor(minValue + rngValue * (maxValue - minValue))];
+  // Based on https://www.pcg-random.org/posts/bounded-rands.html
+  for (;;) {
+    const r = uint32(state);
+    if (r >= threshold) {
+      return minValue + (r % bound);
+    }
+  }
 }
 
-function split(state: TAleaState): [TAleaState, TAleaState] {
+function split(state: TAleaState): TAleaState {
   // Note, because the encoded string only stores 32 bits per state value,
   // have to use 32 bit values and convert here otherwise precision gets
   // lost between save and restores since the data would be out of range.
@@ -147,35 +184,27 @@ function split(state: TAleaState): [TAleaState, TAleaState] {
   let random32_0;
   let random32_1;
 
-  state = nextAlea(state);
-  random32_0 = currentUint32Value(state);
-  state = nextAlea(state);
-  random32_1 = currentUint32Value(state);
+  random32_0 = uint32(state);
+  random32_1 = uint32(state);
   const c = (random32_0 ^ random32_1) >>> 0;
 
-  state = nextAlea(state);
-  random32_0 = currentUint32Value(state);
-  state = nextAlea(state);
-  random32_1 = currentUint32Value(state);
+  random32_0 = uint32(state);
+  random32_1 = uint32(state);
   const s2 = ((random32_0 ^ random32_1) >>> 0) * TWO_RAISED_TO_NEGATIVE_32;
 
-  state = nextAlea(state);
-  random32_0 = currentUint32Value(state);
-  state = nextAlea(state);
-  random32_1 = currentUint32Value(state);
+  random32_0 = uint32(state);
+  random32_1 = uint32(state);
   const s1 = ((random32_0 ^ random32_1) >>> 0) * TWO_RAISED_TO_NEGATIVE_32;
 
-  state = nextAlea(state);
-  random32_0 = currentUint32Value(state);
-  state = nextAlea(state);
-  random32_1 = currentUint32Value(state);
+  random32_0 = uint32(state);
+  random32_1 = uint32(state);
   const s0 = ((random32_0 ^ random32_1) >>> 0) * TWO_RAISED_TO_NEGATIVE_32;
 
-  return [state, [s0, s1, s2, c]];
+  return [s0, s1, s2, c];
 }
 
-function encodeAlea(state: TAleaState): TAleaEncodedState {
-  return encodeUint32ArrayAsBase64String([
+function encodeAlea(state: Readonly<TAleaState>): TAleaEncodedState {
+  return encodeUint32ArrayAsHexString([
     state[0] * TWO_RAISED_TO_32,
     state[1] * TWO_RAISED_TO_32,
     state[2] * TWO_RAISED_TO_32,
@@ -184,7 +213,7 @@ function encodeAlea(state: TAleaState): TAleaEncodedState {
 }
 
 function decodeAlea(encoding: TAleaEncodedState): TAleaState {
-  const uint32State = decodeBase64StringAsUint32Array(encoding);
+  const uint32State = decodeHexStringAsUint32Array(encoding);
 
   return [
     uint32State[0]! * TWO_RAISED_TO_NEGATIVE_32,
@@ -196,7 +225,7 @@ function decodeAlea(encoding: TAleaEncodedState): TAleaState {
 
 export { seedAlea as init };
 export { nextAlea as next };
-export { currentValue as value };
+export { random as random };
 export { uint32 as uint32 };
 export { int32 as int32 };
 export { fract53 as fract53 };
@@ -217,37 +246,29 @@ export default class Alea {
   }
 
   random(): number {
-    this.state = nextAlea(this.state);
-    return currentValue(this.state);
+    return random(this.state);
   }
 
   uint32(): number {
-    return this.random() * TWO_RAISED_TO_32;
+    return uint32(this.state);
   }
 
   int32(): number {
-    return this.uint32() | 0;
+    return int32(this.state);
   }
 
   fract53(): number {
-    return (
-      this.random() +
-      ((this.random() * 0x200000) | 0) * TWO_RAISED_TO_NEGATIVE_53
-    );
+    return fract53(this.state);
   }
 
   range(maxValue: number, minValue: number = 0): number {
-    const rngValue = this.uint32() / TWO_RAISED_TO_32;
-    return Math.floor(minValue + rngValue * (maxValue - minValue));
+    return range(this.state, maxValue, minValue);
   }
 
   split(): Alea {
-    const s0 = this.fract53();
-    const s1 = this.fract53();
-    const s2 = this.fract53();
-    const c = this.fract53();
+    const splitState = split(this.state);
 
-    return new Alea([s0, s1, s2, c]);
+    return new Alea(splitState);
   }
 
   encode(): TAleaEncodedState {

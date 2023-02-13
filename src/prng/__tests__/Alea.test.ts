@@ -4,11 +4,26 @@ const SEEDS = {
   ii: {
     seed: "ii",
     random: [
-      { value: 0.7371923720929772, encoding: "mDsk2mhzMew65j0KAQAAAA==" },
-      { value: 0.9694351863581687, encoding: "aHMx7DrmPQqpo7i8LTIbAA==" },
-      { value: 0.22013063845224679, encoding: "OuY9CqmjuLyF5yz4T3IdAA==" },
-      { value: 0.31599166593514383, encoding: "qaO4vIXnLPhFe1o44EYBAA==" },
-      { value: 0.4441180245485157, encoding: "hecs+EV7Wjhv1ORQNIcXAA==" },
+      {
+        value: 0.7371923720929772,
+        encoding: "983b24da687331ec3ae63d0a01000000",
+      },
+      {
+        value: 0.9694351863581687,
+        encoding: "687331ec3ae63d0aa9a3b8bc2d321b00",
+      },
+      {
+        value: 0.22013063845224679,
+        encoding: "3ae63d0aa9a3b8bc85e72cf84f721d00",
+      },
+      {
+        value: 0.31599166593514383,
+        encoding: "a9a3b8bc85e72cf8457b5a38e0460100",
+      },
+      {
+        value: 0.4441180245485157,
+        encoding: "85e72cf8457b5a386fd4e45034871700",
+      },
     ],
   },
 } as const;
@@ -56,7 +71,19 @@ test("Alea generates positive and negative integer values", () => {
   expect(hasPositive).toBe(true);
 });
 
-test("Alea generates finate double values", () => {
+test("Alea generates finite float values", () => {
+  const seed = SEEDS.ii;
+
+  const alea = new Alea(seed.seed);
+
+  for (let i = 0; i < 100; i++) {
+    const value = alea.random();
+    expect(Number.isFinite(value)).toBe(true);
+    expect(value < 1 && value >= 0).toBe(true);
+  }
+});
+
+test("Alea generates finite double values", () => {
   const seed = SEEDS.ii;
 
   const alea = new Alea(seed.seed);
@@ -64,6 +91,7 @@ test("Alea generates finate double values", () => {
   for (let i = 0; i < 100; i++) {
     const value = alea.fract53();
     expect(Number.isFinite(value)).toBe(true);
+    expect(value < 1 && value >= 0).toBe(true);
   }
 });
 
@@ -90,7 +118,12 @@ test("Alea can encode and decode deterministically", () => {
   const initialState = AleaUtils.init(seed.seed);
 
   let encoding;
-  let state = initialState;
+  let state: [number, number, number, number] = [
+    initialState[0],
+    initialState[1],
+    initialState[2],
+    initialState[3],
+  ];
 
   encoding = AleaUtils.encode(state);
   state = AleaUtils.decode(encoding);
@@ -98,8 +131,7 @@ test("Alea can encode and decode deterministically", () => {
 
   for (const random of seed.random) {
     expect(encoding).toBe(random.encoding);
-    state = AleaUtils.next(state);
-    expect(AleaUtils.value(state)).toBe(random.value);
+    expect(AleaUtils.random(state)).toBe(random.value);
 
     encoding = AleaUtils.encode(state);
     state = AleaUtils.decode(encoding);
@@ -110,18 +142,31 @@ test("Alea can encode and decode split seeds deterministically", () => {
   const seed = SEEDS.ii;
 
   const initialState = AleaUtils.init(seed.seed);
-  const [initialSplitState0, initialSplitState1] =
-    AleaUtils.split(initialState);
 
-  let encoding;
-  let state0 = initialSplitState0;
-  let state1 = initialSplitState1;
+  const initialSplitState0: [number, number, number, number] = [
+    initialState[0],
+    initialState[1],
+    initialState[2],
+    initialState[3],
+  ];
+  const initialSplitState1 = AleaUtils.split(initialSplitState0);
 
-  encoding = AleaUtils.encode(state0);
-  state0 = AleaUtils.decode(encoding);
-  expect(state0).toEqual(initialSplitState0);
+  expect(initialSplitState0).toEqual([
+    0.8289537315722555, 0.49225212121382356, 0.5809025198686868, 928934,
+  ]);
+  expect(initialSplitState1).toEqual([
+    0.9167820902075619, 0.6466059554368258, 0.4091596105135977, 1150567468,
+  ]);
 
-  encoding = AleaUtils.encode(state1);
-  state1 = AleaUtils.decode(encoding);
-  expect(state1).toEqual(initialSplitState1);
+  const encodedState0 = AleaUtils.encode(initialSplitState0);
+  const decodedState0 = AleaUtils.decode(encodedState0);
+  expect(decodedState0).toEqual([
+    0.8289537315722555, 0.49225212121382356, 0.5809025198686868, 928934,
+  ]);
+
+  const encodedState1 = AleaUtils.encode(initialSplitState1);
+  const decodedState1 = AleaUtils.decode(encodedState1);
+  expect(decodedState1).toEqual([
+    0.9167820902075619, 0.6466059554368258, 0.4091596105135977, 1150567468,
+  ]);
 });

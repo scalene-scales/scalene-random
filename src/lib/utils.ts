@@ -1,30 +1,29 @@
+import { THexString_LengthMod8 } from "@scalene-scales/scalene-binary/dist/types";
 import { NonEmptyArray } from "ts-essentials";
+import {
+  TBase100Probability,
+  TInitialSeed,
+  TNextSeed,
+  TRandomWrapper,
+  TSeed,
+  TSplitSeed,
+} from "types";
 import { v4 as uuidv4 } from "uuid";
 import * as PRNG from "../prng/Alea";
 
-type TAleaEncodedState = string & { __type: "AleaEncodedState" };
-type TAleaState = [s0: number, s1: number, s2: number, c: number];
+type TEncodedState = THexString_LengthMod8 & { __type: "AleaEncodedState" }; // TAleaEncodedState
+type TPRNGState = [s0: number, s1: number, s2: number, c: number]; // TAleaState
 
-// TODO: Figure out how to make these global types.
-export type TBase100Probability = number & { __type: "Base100Probability" };
-
-export type TInitialSeed = string & { __id: "InitialSeed" };
-export type TNextSeed = (string & { __id: "NextSeed" }) | TInitialSeed;
-export type TSplitSeed = (string & { __id: "SplitSeed" }) | TInitialSeed;
-export type TSeed = TNextSeed | TSplitSeed;
-
-export type TRandomUtilsWrapper = Wrapper<{ seed: TSeed }>;
-
-function decode(seed: TSeed): TAleaState {
-  return PRNG.decode(seed as unknown as TAleaEncodedState);
+function decode(seed: TSeed): TPRNGState {
+  return PRNG.decode(seed as unknown as TEncodedState);
 }
 
-function encodeNextSeed(aleaState: TAleaState): TNextSeed {
-  return PRNG.encode(aleaState) as unknown as TNextSeed;
+function encodeNextSeed(prng: TPRNGState): TNextSeed {
+  return PRNG.encode(prng) as unknown as TNextSeed;
 }
 
-function encodeSplitSeed(aleaState: TAleaState): TSplitSeed {
-  return PRNG.encode(aleaState) as unknown as TSplitSeed;
+function encodeSplitSeed(prng: TPRNGState): TSplitSeed {
+  return PRNG.encode(prng) as unknown as TSplitSeed;
 }
 
 function initSeed(): TInitialSeed {
@@ -37,9 +36,9 @@ function fixedSeed(name: string): TInitialSeed {
 
 function splitSeed(seed: TSeed): [TNextSeed, TSplitSeed] {
   const alea = decode(seed);
-  const [nextAlea, splitAlea] = PRNG.split(alea);
+  const splitAlea = PRNG.split(alea);
 
-  return [encodeNextSeed(nextAlea), encodeSplitSeed(splitAlea)];
+  return [encodeNextSeed(alea), encodeSplitSeed(splitAlea)];
 }
 
 function splitWrappedSeed<T extends { seed: TSeed }>(wraper: T): TSplitSeed {
@@ -48,38 +47,30 @@ function splitWrappedSeed<T extends { seed: TSeed }>(wraper: T): TSplitSeed {
   return splitSeedValue;
 }
 
-function nextSeed(seed: TSeed): TNextSeed {
-  const alea = decode(seed);
-  const nextAlea = PRNG.next(alea);
-
-  return encodeNextSeed(nextAlea);
-}
-
 function randomInt(
   seed: TSeed,
   maxValue: number,
   minValue: number = 0
 ): [TNextSeed, number] {
-  const alea = decode(seed);
-  const [nextAlea, intValue] = PRNG.range(alea, maxValue, minValue);
+  const prng = decode(seed);
+  const intValue = PRNG.range(prng, maxValue, minValue);
 
-  return [encodeNextSeed(nextAlea), intValue];
+  return [encodeNextSeed(prng), intValue];
 }
 
 function shuffle<T>(seed: TSeed, deck: Array<T>): TNextSeed {
-  let currentSeed = seed;
+  const prng = decode(seed);
 
   // https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle#The_modern_algorithm
   for (let i = 0; i < deck.length - 1; i++) {
-    const [newSeed, swapIndex] = randomInt(currentSeed, deck.length, i);
-    currentSeed = newSeed;
+    const swapIndex = PRNG.range(prng, deck.length, i);
 
     const temp = deck[i]!;
     deck[i] = deck[swapIndex]!;
     deck[swapIndex] = temp;
   }
 
-  return nextSeed(seed);
+  return encodeNextSeed(prng);
 }
 
 function pickOne<T>(
@@ -121,17 +112,16 @@ function sampleNonUniquely<T>(
   if (population.length < 1) {
     return [seed as TNextSeed, []];
   }
-  let currentSeed = seed;
+  const prng = decode(seed);
 
   const samples: Array<T> = [];
   for (let i = 0; i < n; i++) {
-    const [newSeed, sampleIndex] = randomInt(currentSeed, population.length);
-    currentSeed = newSeed;
+    const sampleIndex = PRNG.range(prng, population.length);
 
     samples.push(population[sampleIndex]!);
   }
 
-  return [nextSeed(currentSeed), samples];
+  return [encodeNextSeed(prng), samples];
 }
 
 function* sampleUniquelyGenerator<T>(
@@ -142,6 +132,7 @@ function* sampleUniquelyGenerator<T>(
 
   const rawSamples: { [index: number]: T } = {};
   for (let i = 0; i < population.length; i++) {
+    // Note, have to decode-encode because RNG may advance between generator calls.
     const [newSeed, sampleIndex] = randomInt(currentSeed, population.length, i);
 
     const temp = i in rawSamples ? rawSamples[i]! : population[i]!;
@@ -157,7 +148,7 @@ function* sampleUniquelyGenerator<T>(
     ];
   }
 
-  return nextSeed(currentSeed);
+  return currentSeed as TNextSeed;
 }
 
 function sampleUniquely<T>(
@@ -165,25 +156,28 @@ function sampleUniquely<T>(
   population: ReadonlyArray<T>,
   n: number
 ): [TNextSeed, Array<T>] {
-  let currentSeed = seed;
+  const prng = decode(seed);
 
-  const generator = sampleUniquelyGenerator(currentSeed, population);
   const samples: Array<T> = [];
-  for (let i = 0; i < n; i++) {
-    const next = generator.next(currentSeed);
-    if (!next.done) {
-      const [newSeed, sample] = next.value;
-      samples.push(sample);
-      currentSeed = newSeed;
-    } else {
-      return [nextSeed(currentSeed), samples];
-    }
+  const rawSamples: { [index: number]: T } = {};
+  for (let i = 0; i < population.length; i++) {
+    const sampleIndex = PRNG.range(prng, population.length, i);
+
+    const temp = i in rawSamples ? rawSamples[i]! : population[i]!;
+    rawSamples[i] =
+      sampleIndex in rawSamples
+        ? rawSamples[sampleIndex]!
+        : population[sampleIndex]!;
+    rawSamples[sampleIndex] = temp;
+
+    const sample = i in rawSamples ? rawSamples[i]! : population[i]!;
+    samples.push(sample);
   }
 
-  return [nextSeed(currentSeed), samples];
+  return [encodeNextSeed(prng), samples];
 }
 
-class Wrapper<T extends { seed: TSeed }> {
+class Wrapper<T extends { seed: TSeed }> implements TRandomWrapper {
   #wrapped: T;
 
   constructor(wrapped: T) {
@@ -256,11 +250,11 @@ class Wrapper<T extends { seed: TSeed }> {
   }
 }
 
-function wrap<T extends { seed: TSeed }>(wrapped: T): TRandomUtilsWrapper {
+function wrap<T extends { seed: TSeed }>(wrapped: T): TRandomWrapper {
   return new Wrapper(wrapped);
 }
 
-function wrapper(splitSeed: TSplitSeed): TRandomUtilsWrapper {
+function wrapper(splitSeed: TSplitSeed): TRandomWrapper {
   return new Wrapper({ seed: splitSeed });
 }
 
@@ -269,7 +263,6 @@ const RandomUtils = {
   fixedSeed,
   splitSeed,
   splitWrappedSeed,
-  nextSeed,
   pickOne,
   weightedPickOne,
   sampleNonUniquely,
