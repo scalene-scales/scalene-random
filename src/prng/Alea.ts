@@ -4,10 +4,15 @@ import {
 } from "@scalene-scales/scalene-binary/dist/lib";
 
 type TAleaEncodedState = string & { __type: "AleaEncodedState" };
+
+// Note, the state is represented by 3 32 bit decimals and a 32 bit uint.
+// Because 32 bit decimals take more bits to represent than 32 bit floats,
+// they either need to be converted to uint32 for encoding or stored as float64.
 type TAleaState = [s0: number, s1: number, s2: number, c: number];
 
 const N = 0xefc8249d;
 const SPACE_CHAR_CODE = 32;
+const TWO_RAISED_TO_21 = 0x200000;
 const TWO_RAISED_TO_32 = 0x100000000; // 2^32
 const TWO_RAISED_TO_NEGATIVE_32 = 2.3283064365386963e-10; // 2^-32
 const TWO_RAISED_TO_NEGATIVE_53 = 1.1102230246251565e-16; // 2^-53
@@ -86,6 +91,7 @@ function nextAlea(state: TAleaState): TAleaState {
 }
 
 function currentValue(state: TAleaState): number {
+  // Note, this returns a 32 bit decimal value.
   return state[2];
 }
 
@@ -105,7 +111,7 @@ function int32(state: TAleaState): [TAleaState, number] {
 }
 
 function fract53Value(low32: number, high32: number): number {
-  return low32 + ((high32 * 0x200000) | 0) * TWO_RAISED_TO_NEGATIVE_53;
+  return low32 + ((high32 * TWO_RAISED_TO_21) | 0) * TWO_RAISED_TO_NEGATIVE_53;
 }
 
 function fract53(state: TAleaState): [TAleaState, number] {
@@ -124,37 +130,46 @@ function range(
 ): [TAleaState, number] {
   const [nextAlea, uint32Value] = uint32(state);
 
-  const rngValue = uint32Value / TWO_RAISED_TO_32;
+  const rngValue = uint32Value * TWO_RAISED_TO_NEGATIVE_32;
   return [nextAlea, Math.floor(minValue + rngValue * (maxValue - minValue))];
 }
 
 function split(state: TAleaState): [TAleaState, TAleaState] {
-  let low32;
-  let high32;
+  // Note, because the encoded string only stores 32 bits per state value,
+  // have to use 32 bit values and convert here otherwise precision gets
+  // lost between save and restores since the data would be out of range.
+
+  // Note, because Alea just returns state values directly, using values
+  // directly leads to a highly correllated state between split seeds.
+  // Hack, take two values and XOR them together, I suspect that this
+  // doesn't actually decorrelate them particularly well, but ¯\_(ツ)_/¯.
+
+  let random32_0;
+  let random32_1;
 
   state = nextAlea(state);
-  low32 = currentValue(state);
+  random32_0 = currentUint32Value(state);
   state = nextAlea(state);
-  high32 = currentValue(state);
-  const s0 = fract53Value(low32, high32);
+  random32_1 = currentUint32Value(state);
+  const c = (random32_0 ^ random32_1) >>> 0;
 
   state = nextAlea(state);
-  low32 = currentValue(state);
+  random32_0 = currentUint32Value(state);
   state = nextAlea(state);
-  high32 = currentValue(state);
-  const s1 = fract53Value(low32, high32);
+  random32_1 = currentUint32Value(state);
+  const s2 = ((random32_0 ^ random32_1) >>> 0) * TWO_RAISED_TO_NEGATIVE_32;
 
   state = nextAlea(state);
-  low32 = currentValue(state);
+  random32_0 = currentUint32Value(state);
   state = nextAlea(state);
-  high32 = currentValue(state);
-  const s2 = fract53Value(low32, high32);
+  random32_1 = currentUint32Value(state);
+  const s1 = ((random32_0 ^ random32_1) >>> 0) * TWO_RAISED_TO_NEGATIVE_32;
 
   state = nextAlea(state);
-  low32 = currentValue(state);
+  random32_0 = currentUint32Value(state);
   state = nextAlea(state);
-  high32 = currentValue(state);
-  const c = fract53Value(low32, high32);
+  random32_1 = currentUint32Value(state);
+  const s0 = ((random32_0 ^ random32_1) >>> 0) * TWO_RAISED_TO_NEGATIVE_32;
 
   return [state, [s0, s1, s2, c]];
 }

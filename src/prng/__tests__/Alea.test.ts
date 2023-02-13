@@ -23,6 +23,67 @@ test("Alea generates known random values for a fixed seed", () => {
   }
 });
 
+test("Alea generates positive integer values", () => {
+  const seed = SEEDS.ii;
+
+  const alea = new Alea(seed.seed);
+
+  for (let i = 0; i < 100; i++) {
+    const value = alea.uint32();
+    expect(Number.isSafeInteger(value)).toBe(true);
+    expect(value > 0).toBe(true);
+  }
+});
+
+test("Alea generates positive and negative integer values", () => {
+  const seed = SEEDS.ii;
+
+  const alea = new Alea(seed.seed);
+
+  let hasPositive = false;
+  let hasNegative = false;
+  for (let i = 0; i < 100; i++) {
+    const value = alea.int32();
+    expect(Number.isSafeInteger(value)).toBe(true);
+    if (value > 0) {
+      hasPositive = true;
+    }
+    if (value < 0) {
+      hasNegative = true;
+    }
+  }
+  expect(hasNegative).toBe(true);
+  expect(hasPositive).toBe(true);
+});
+
+test("Alea generates finate double values", () => {
+  const seed = SEEDS.ii;
+
+  const alea = new Alea(seed.seed);
+
+  for (let i = 0; i < 100; i++) {
+    const value = alea.fract53();
+    expect(Number.isFinite(value)).toBe(true);
+  }
+});
+
+test("Alea generates integers across a range", () => {
+  const seed = SEEDS.ii;
+  const max = 100;
+  const cycles = 10 * max;
+
+  const alea = new Alea(seed.seed);
+
+  const randomInts = new Set<number>();
+  for (let i = 0; i < cycles; i++) {
+    randomInts.add(alea.range(max));
+  }
+
+  for (let i = 0; i < max; i++) {
+    expect(randomInts.has(i)).toBe(true);
+  }
+});
+
 test("Alea can encode and decode deterministically", () => {
   const seed = SEEDS.ii;
 
@@ -43,4 +104,24 @@ test("Alea can encode and decode deterministically", () => {
     encoding = AleaUtils.encode(state);
     state = AleaUtils.decode(encoding);
   }
+});
+
+test("Alea can encode and decode split seeds deterministically", () => {
+  const seed = SEEDS.ii;
+
+  const initialState = AleaUtils.init(seed.seed);
+  const [initialSplitState0, initialSplitState1] =
+    AleaUtils.split(initialState);
+
+  let encoding;
+  let state0 = initialSplitState0;
+  let state1 = initialSplitState1;
+
+  encoding = AleaUtils.encode(state0);
+  state0 = AleaUtils.decode(encoding);
+  expect(state0).toEqual(initialSplitState0);
+
+  encoding = AleaUtils.encode(state1);
+  state1 = AleaUtils.decode(encoding);
+  expect(state1).toEqual(initialSplitState1);
 });

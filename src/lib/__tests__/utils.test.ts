@@ -26,23 +26,70 @@ describe("RandomUtils should", () => {
     ]).toEqual([54, 70, 72, 18, 40]);
   });
 
-  it("splitting a seed should create diverging numbers", () => {
+  it("splitting a seed should create diverging numbers immediately", () => {
+    const max = 100;
+    const cycles = 5;
+    const duplicateLimit = 0;
+
     const seed = RandomUtils.fixedSeed("test");
     const [seed1, seed2] = RandomUtils.splitSeed(seed);
     const wrapped1 = RandomUtils.wrap({ seed: seed1 });
     const wrapped2 = RandomUtils.wrap({ seed: seed2 });
 
-    const wrapped1Numbers = [
-      wrapped1.randomInt(1000),
-      wrapped1.randomInt(1000),
-      wrapped1.randomInt(1000),
-      wrapped1.randomInt(1000),
-      wrapped1.randomInt(1000),
-    ];
+    let duplicates;
 
-    for (const _wrapped1Number of wrapped1Numbers) {
-      expect(wrapped1Numbers).not.toContain(wrapped2.randomInt(1000));
+    duplicates = 0;
+    const wrapped1Numbers = new Set<number>();
+    for (let i = 0; i < cycles; i++) {
+      const wrapped1Number = wrapped1.randomInt(max);
+      if (wrapped1Numbers.has(wrapped1Number)) {
+        duplicates++;
+      }
+      wrapped1Numbers.add(wrapped1Number);
     }
+    expect(duplicates).toBeLessThanOrEqual(duplicateLimit);
+
+    duplicates = 0;
+    for (let i = 0; i < cycles; i++) {
+      const wrapped2Number = wrapped2.randomInt(max);
+      if (wrapped1Numbers.has(wrapped2Number)) {
+        duplicates++;
+      }
+    }
+    expect(duplicates).toBeLessThanOrEqual(duplicateLimit);
+  });
+
+  it("splitting a seed should create diverging numbers over many numbers", () => {
+    const max = 10000;
+    const cycles = 100;
+    const duplicateLimit = 1;
+
+    const seed = RandomUtils.fixedSeed("test");
+    const [seed1, seed2] = RandomUtils.splitSeed(seed);
+    const wrapped1 = RandomUtils.wrap({ seed: seed1 });
+    const wrapped2 = RandomUtils.wrap({ seed: seed2 });
+
+    let duplicates;
+
+    duplicates = 0;
+    const wrapped1Numbers = new Set<number>();
+    for (let i = 0; i < cycles; i++) {
+      const wrapped1Number = wrapped1.randomInt(max);
+      if (wrapped1Numbers.has(wrapped1Number)) {
+        duplicates++;
+      }
+      wrapped1Numbers.add(wrapped1Number);
+    }
+    expect(duplicates).toBeLessThanOrEqual(duplicateLimit);
+
+    duplicates = 0;
+    for (let i = 0; i < cycles; i++) {
+      const wrapped2Number = wrapped2.randomInt(max);
+      if (wrapped1Numbers.has(wrapped2Number)) {
+        duplicates++;
+      }
+    }
+    expect(duplicates).toBeLessThanOrEqual(duplicateLimit);
   });
 
   it("weighted pick one should handle one item collections", () => {
