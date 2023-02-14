@@ -1,5 +1,7 @@
 import { THexString_LengthMod8 } from "@scalene-scales/scalene-binary/dist/types";
 import { NonEmptyArray } from "ts-essentials";
+import { v4 as uuidv4 } from "uuid";
+import * as PRNG from "../prng/Alea";
 import {
   TBase100Probability,
   TInitialSeed,
@@ -7,9 +9,7 @@ import {
   TRandomWrapper,
   TSeed,
   TSplitSeed,
-} from "types";
-import { v4 as uuidv4 } from "uuid";
-import * as PRNG from "../prng/Alea";
+} from "../types";
 
 type TEncodedState = THexString_LengthMod8 & { __type: "AleaEncodedState" }; // TAleaEncodedState
 type TPRNGState = [s0: number, s1: number, s2: number, c: number]; // TAleaState
@@ -157,10 +157,11 @@ function sampleUniquely<T>(
   n: number
 ): [TNextSeed, Array<T>] {
   const prng = decode(seed);
+  const limit = Math.min(population.length, n);
 
   const samples: Array<T> = [];
   const rawSamples: { [index: number]: T } = {};
-  for (let i = 0; i < population.length; i++) {
+  for (let i = 0; i < limit; i++) {
     const sampleIndex = PRNG.range(prng, population.length, i);
 
     const temp = i in rawSamples ? rawSamples[i]! : population[i]!;

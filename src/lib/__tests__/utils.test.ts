@@ -1,8 +1,8 @@
 import RandomUtils from "lib/utils";
-import { NonEmptyArray } from "ts-essentials";
+import { NonEmptyArray } from "ts-essentials/dist/types";
 
-describe("RandomUtils should", () => {
-  it("initSeed should generate distinct seeds", () => {
+describe("RandomUtils", () => {
+  it("should initSeed should generate distinct seeds", () => {
     const checks = 10;
     const seeds = new Set<string>([]);
 
@@ -13,7 +13,7 @@ describe("RandomUtils should", () => {
     expect(seeds.size).toEqual(checks);
   });
 
-  it("generate random numbers determinstically", () => {
+  it("should generate random numbers determinstically", () => {
     const seed = RandomUtils.fixedSeed("test");
     const wrapped = RandomUtils.wrap({ seed: seed });
 
@@ -26,7 +26,7 @@ describe("RandomUtils should", () => {
     ]).toEqual([42, 78, 60, 67, 51]);
   });
 
-  it("splitting a seed should create diverging numbers immediately", () => {
+  it("should split a seed should create diverging numbers immediately", () => {
     const max = 100;
     const cycles = 5;
     const duplicateLimit = 0;
@@ -59,7 +59,7 @@ describe("RandomUtils should", () => {
     expect(duplicates).toBeLessThanOrEqual(duplicateLimit);
   });
 
-  it("splitting a seed should create diverging numbers over many numbers", () => {
+  it("should split a seed should create diverging numbers over many numbers", () => {
     const max = 10000;
     const cycles = 100;
     const duplicateLimit = 1;
@@ -92,7 +92,7 @@ describe("RandomUtils should", () => {
     expect(duplicates).toBeLessThanOrEqual(duplicateLimit);
   });
 
-  it("weighted pick one should handle one item collections", () => {
+  it("should weighted pick one should handle one item collections", () => {
     const seed = RandomUtils.fixedSeed("test");
     const choices: NonEmptyArray<[number, string]> = [[1, "1"]];
 
@@ -101,7 +101,7 @@ describe("RandomUtils should", () => {
     expect(pick).toEqual("1");
   });
 
-  it("weighted pick one should handle uniform item collections", () => {
+  it("should weighted pick one should handle uniform item collections", () => {
     const seed = RandomUtils.fixedSeed("test");
     const choices: NonEmptyArray<[number, string]> = [
       [1, "1"],
@@ -119,7 +119,7 @@ describe("RandomUtils should", () => {
     expect(counts).toEqual({ "1": 57, "2": 43 });
   });
 
-  it("weighted pick one should handle biased item collections", () => {
+  it("should weighted pick one should handle biased item collections", () => {
     const seed = RandomUtils.fixedSeed("test");
     const choices: NonEmptyArray<[number, string]> = [
       [1, "1"],
@@ -137,7 +137,7 @@ describe("RandomUtils should", () => {
     expect(counts).toEqual({ "1": 90, "2": 10 });
   });
 
-  it("sampling non uniquely should handle empty populations", () => {
+  it("should sample non uniquely should handle empty populations", () => {
     const seed = RandomUtils.fixedSeed("test");
     const population: Array<number> = [];
 
@@ -150,7 +150,7 @@ describe("RandomUtils should", () => {
     expect(samples).toEqual([]);
   });
 
-  it("sampling uniquely should handle empty populations", () => {
+  it("should sample uniquely should handle empty populations", () => {
     const seed = RandomUtils.fixedSeed("test");
     const population: Array<number> = [];
 
@@ -159,7 +159,7 @@ describe("RandomUtils should", () => {
     expect(samples).toEqual([]);
   });
 
-  it("sampling non uniquely should generate duplicates", () => {
+  it("should sample non uniquely should generate duplicates", () => {
     const seed = RandomUtils.fixedSeed("test");
     const population = [0, 1, 2, 3, 4];
 
@@ -172,7 +172,7 @@ describe("RandomUtils should", () => {
     expect(samples).toEqual([2, 3, 0, 2]);
   });
 
-  it("sampling uniquely should not generate duplicates", () => {
+  it("should sample uniquely should not generate duplicates", () => {
     const seed = RandomUtils.fixedSeed("test");
     const population = [0, 1, 2, 3, 4];
 
@@ -181,7 +181,7 @@ describe("RandomUtils should", () => {
     expect(samples).toEqual([2, 3, 0, 4, 1]);
   });
 
-  it("sampling non uniquely should handle over population generation", () => {
+  it("should sample non uniquely should handle over population generation", () => {
     const seed = RandomUtils.fixedSeed("test");
     const population = [0, 1, 2, 3, 4];
 
@@ -194,7 +194,7 @@ describe("RandomUtils should", () => {
     expect(samples).toEqual([2, 3, 0, 2, 1, 3, 0, 1, 0, 3]);
   });
 
-  it("sampling uniquely should cap over popultion generation", () => {
+  it("should sample uniquely should cap over popultion generation", () => {
     const seed = RandomUtils.fixedSeed("test");
     const population = [0, 1, 2, 3, 4];
 

@@ -69,7 +69,7 @@ function seedAlea(seed: string): TAleaState {
   let s0 = 0;
   let s1 = 0;
   let s2 = 0;
-  let c = 1;
+  const c = 1;
 
   let n = N;
 
@@ -105,7 +105,7 @@ function nextAlea(state: TAleaState): void {
   let s2 = state[2];
   let c = state[3];
 
-  let t = 2091639 * s0 + c * TWO_RAISED_TO_NEGATIVE_32;
+  const t = 2091639 * s0 + c * TWO_RAISED_TO_NEGATIVE_32;
   s0 = s1;
   s1 = s2;
   c = t | 0;
