@@ -194,7 +194,7 @@ describe("RandomUtils", () => {
     expect(samples).toEqual([2, 3, 0, 2, 1, 3, 0, 1, 0, 3]);
   });
 
-  it("should sample uniquely should cap over popultion generation", () => {
+  it("should sample uniquely should cap over population generation", () => {
     const seed = RandomUtils.fixedSeed("test");
     const population = [0, 1, 2, 3, 4];
 
@@ -203,6 +203,16 @@ describe("RandomUtils", () => {
       population,
       10
     );
+
+    expect(samples).toEqual([2, 3, 0, 4, 1]);
+  });
+
+  it("should sample uniquely should cap over population generation with wrapper", () => {
+    const seed = RandomUtils.fixedSeed("test");
+    const rng = RandomUtils.wrapper(seed);
+    const population = [0, 1, 2, 3, 4];
+
+    const samples = rng.sampleUniquely(population, 10);
 
     expect(samples).toEqual([2, 3, 0, 4, 1]);
   });

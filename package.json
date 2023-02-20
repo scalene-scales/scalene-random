@@ -1,6 +1,6 @@
 {
   "name": "@scalene-scales/scalene-random",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "A determistic PRNG library.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -56,8 +56,11 @@
     "url": "git+https://github.com/scalene-scales/scalene-random.git"
   },
   "dependencies": {
-    "@scalene-scales/scalene-binary": "github:scalene-scales/scalene-binary",
+    "@scalene-scales/scalene-binary": "^1.0.1",
     "uuid": "^9.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "bugs": {
     "url": "https://github.com/scalene-scales/scalene-random/issues"
