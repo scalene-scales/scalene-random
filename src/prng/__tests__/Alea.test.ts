@@ -95,6 +95,14 @@ test("Alea generates finite double values", () => {
   }
 });
 
+test("Alea generates integers with a range of 0", () => {
+  const seed = SEEDS.ii;
+
+  const alea = new Alea(seed.seed);
+
+  expect(alea.range(0)).toBe(0);
+});
+
 test("Alea generates integers across a range", () => {
   const seed = SEEDS.ii;
   const max = 100;

@@ -124,6 +124,14 @@ test("PCG32 generates integers across a range", () => {
   }
 });
 
+test("PCG32 generates integers with a range of 0", () => {
+  const seed = SEEDS.ii;
+
+  const alea = new PCG32(seed.seed);
+
+  expect(alea.range(0)).toBe(0);
+});
+
 test("PCG32 can encode and decode deterministically", () => {
   const seed = SEEDS.ii;
 

@@ -13,6 +13,19 @@ describe("RandomUtils", () => {
     expect(seeds.size).toEqual(checks);
   });
 
+  it("should generate random numbers with a range of 0", () => {
+    const seed = RandomUtils.fixedSeed("test");
+    const wrapped = RandomUtils.wrap({ seed: seed });
+
+    expect([
+      wrapped.randomInt(0),
+      wrapped.randomInt(1, 1),
+      wrapped.randomInt(2, 2),
+      wrapped.randomInt(3, 3),
+      wrapped.randomInt(4, 4),
+    ]).toEqual([0, 1, 2, 3, 4]);
+  });
+
   it("should generate random numbers determinstically", () => {
     const seed = RandomUtils.fixedSeed("test");
     const wrapped = RandomUtils.wrap({ seed: seed });

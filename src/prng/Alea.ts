@@ -160,6 +160,10 @@ function range(
   minValue: number = 0
 ): number {
   const bound = maxValue - minValue;
+  if (bound < 1) {
+    return maxValue;
+  }
+
   const threshold = maxValue % bound;
 
   // Based on https://www.pcg-random.org/posts/bounded-rands.html
@@ -223,16 +227,18 @@ function decodeAlea(encoding: TAleaEncodedState): TAleaState {
   ];
 }
 
-export { seedAlea as init };
-export { nextAlea as next };
-export { random as random };
-export { uint32 as uint32 };
-export { int32 as int32 };
-export { fract53 as fract53 };
-export { range as range };
-export { split as split };
-export { encodeAlea as encode };
-export { decodeAlea as decode };
+export {
+  decodeAlea as decode,
+  encodeAlea as encode,
+  fract53 as fract53,
+  seedAlea as init,
+  int32 as int32,
+  nextAlea as next,
+  random as random,
+  range as range,
+  split as split,
+  uint32 as uint32,
+};
 
 export default class Alea {
   private state: TAleaState;

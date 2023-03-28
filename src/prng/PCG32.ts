@@ -122,8 +122,11 @@ function range(
   minValue: number = 0
 ): number {
   const bound = maxValue - minValue;
-  const threshold = maxValue % bound;
+  if (bound < 1) {
+    return maxValue;
+  }
 
+  const threshold = maxValue % bound;
   // Based on https://www.pcg-random.org/posts/bounded-rands.html
   for (;;) {
     const r = uint32(state);
@@ -158,16 +161,18 @@ function decodePCG32(encoding: TPCG32EncodedState): TPCG32State {
   return [bigintState[0]!, bigintState[1]!];
 }
 
-export { seedPCG32 as init };
-export { nextPCG32 as next };
-export { random as random };
-export { uint32 as uint32 };
-export { int32 as int32 };
-export { fract53 as fract53 };
-export { range as range };
-export { split as split };
-export { encodePCG32 as encode };
-export { decodePCG32 as decode };
+export {
+  decodePCG32 as decode,
+  encodePCG32 as encode,
+  fract53 as fract53,
+  seedPCG32 as init,
+  int32 as int32,
+  nextPCG32 as next,
+  random as random,
+  range as range,
+  split as split,
+  uint32 as uint32,
+};
 
 export default class PCG32 {
   private state: TPCG32State;
