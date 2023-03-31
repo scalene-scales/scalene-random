@@ -1,6 +1,6 @@
 {
   "name": "@scalene-scales/scalene-random",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "A determistic PRNG library.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -28,7 +28,7 @@
   ],
   "keywords": [],
   "author": "Scalene Scales",
-  "license": "MIT",
+  "license": "ISC",
   "devDependencies": {
     "@babel/cli": "^7.8.3",
     "@babel/core": "^7.20.12",
