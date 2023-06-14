@@ -109,9 +109,6 @@ function sampleNonUniquely<T>(
   population: ReadonlyArray<T>,
   n: number
 ): [TNextSeed, Array<T>] {
-  if (population.length < 1) {
-    return [seed as TNextSeed, []];
-  }
   const prng = decode(seed);
 
   const samples: Array<T> = [];
@@ -186,32 +183,58 @@ class Wrapper<T extends { seed: TSeed }> implements TRandomWrapper {
   }
 
   randomInt(maxValue: number, minValue: number = 0): number {
+    if (maxValue - minValue === 0) {
+      return maxValue;
+    }
+
     const [nextSeed, value] = randomInt(this.#wrapped.seed, maxValue, minValue);
     this.#wrapped.seed = nextSeed;
     return value;
   }
 
   roll(probabilty: TBase100Probability): boolean {
+    if (probabilty >= 100) {
+      return true;
+    } else if (probabilty === 0) {
+      return false;
+    }
+
     return this.randomInt(100) < probabilty;
   }
 
   shuffle<R>(deck: Array<R>): void {
+    if (deck.length === 0) {
+      return;
+    }
+
     this.#wrapped.seed = shuffle(this.#wrapped.seed, deck);
   }
 
   pickOne<R>(choices: Readonly<NonEmptyArray<R>>): R {
+    if (choices.length === 1) {
+      return choices[0];
+    }
+
     const [nextSeed, value] = pickOne(this.#wrapped.seed, choices);
     this.#wrapped.seed = nextSeed;
     return value;
   }
 
   weightedPickOne<R>(choices: Readonly<NonEmptyArray<[number, R]>>): R {
+    if (choices.length === 1) {
+      return choices[0][1];
+    }
+
     const [nextSeed, value] = weightedPickOne(this.#wrapped.seed, choices);
     this.#wrapped.seed = nextSeed;
     return value;
   }
 
   sampleUniquely<R>(population: ReadonlyArray<R>, n: number): Array<R> {
+    if (population.length === 0) {
+      return [];
+    }
+
     const [nextSeed, value] = sampleUniquely(this.#wrapped.seed, population, n);
     this.#wrapped.seed = nextSeed;
     return value;
@@ -234,6 +257,10 @@ class Wrapper<T extends { seed: TSeed }> implements TRandomWrapper {
   }
 
   sampleNonUniquely<R>(population: ReadonlyArray<R>, n: number): Array<R> {
+    if (population.length === 0) {
+      return [];
+    }
+
     const [nextSeed, value] = sampleNonUniquely(
       this.#wrapped.seed,
       population,
