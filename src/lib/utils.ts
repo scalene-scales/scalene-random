@@ -47,6 +47,16 @@ function splitWrappedSeed<T extends { seed: TSeed }>(wraper: T): TSplitSeed {
   return splitSeedValue;
 }
 
+function advanceRNG(seed: TSeed, times: number = 1): TNextSeed {
+  const prng = decode(seed);
+
+  for (let i = 0; i < times; i++) {
+    PRNG.next(prng);
+  }
+
+  return encodeNextSeed(prng);
+}
+
 function randomInt(
   seed: TSeed,
   maxValue: number,
@@ -182,6 +192,14 @@ class Wrapper<T extends { seed: TSeed }> implements TRandomWrapper {
     this.#wrapped = wrapped;
   }
 
+  advanceRNG(times: number = 1): void {
+    if (times < 1) {
+      return;
+    }
+
+    this.#wrapped.seed = advanceRNG(this.#wrapped.seed, times);
+  }
+
   randomInt(maxValue: number, minValue: number = 0): number {
     if (maxValue - minValue === 0) {
       return maxValue;
@@ -291,6 +309,7 @@ const RandomUtils = {
   fixedSeed,
   splitSeed,
   splitWrappedSeed,
+  advanceRNG,
   pickOne,
   weightedPickOne,
   sampleNonUniquely,

@@ -1,8 +1,9 @@
 import RandomUtils from "lib/utils";
 import { NonEmptyArray } from "ts-essentials/dist/types";
+import { TSeed } from "types";
 
 describe("RandomUtils", () => {
-  it("should initSeed should generate distinct seeds", () => {
+  it("initSeed should generate distinct seeds", () => {
     const checks = 10;
     const seeds = new Set<string>([]);
 
@@ -11,6 +12,20 @@ describe("RandomUtils", () => {
     }
 
     expect(seeds.size).toEqual(checks);
+  });
+
+  it("advanceRNG should generate distinct seeds", () => {
+    const checks = 10;
+    const seeds = new Set<string>([]);
+
+    let currentSeed: TSeed = RandomUtils.initSeed();
+    seeds.add(currentSeed);
+    for (let i = 0; i < checks; i++) {
+      currentSeed = RandomUtils.advanceRNG(currentSeed);
+      seeds.add(currentSeed);
+    }
+
+    expect(seeds.size).toEqual(checks + 1);
   });
 
   it("should generate random numbers with a range of 0", () => {

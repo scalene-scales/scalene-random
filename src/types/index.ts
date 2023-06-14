@@ -8,6 +8,8 @@ export type TSplitSeed = (string & { __id: "SplitSeed" }) | TInitialSeed;
 export type TSeed = TNextSeed | TSplitSeed;
 
 export interface TRandomWrapper {
+  advanceRNG(times?: number): void;
+
   randomInt(maxValue: number, minValue?: number): number;
 
   roll(probabilty: TBase100Probability): boolean;
