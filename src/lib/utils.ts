@@ -231,7 +231,7 @@ class Wrapper<T extends { seed: TSeed }> implements TRandomWrapper {
   }
 
   sampleUniquely<R>(population: ReadonlyArray<R>, n: number): Array<R> {
-    if (population.length === 0) {
+    if (population.length === 0 || n === 0) {
       return [];
     }
 
@@ -257,7 +257,7 @@ class Wrapper<T extends { seed: TSeed }> implements TRandomWrapper {
   }
 
   sampleNonUniquely<R>(population: ReadonlyArray<R>, n: number): Array<R> {
-    if (population.length === 0) {
+    if (population.length === 0 || n === 0) {
       return [];
     }
 
