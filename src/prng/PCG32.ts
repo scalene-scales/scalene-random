@@ -36,14 +36,16 @@ import {
   TWO_RAISED_TO_NEGATIVE_53,
 } from "@scalene-scales/scalene-binary/dist/lib/constants";
 import { THexString_LengthMod16 } from "@scalene-scales/scalene-binary/dist/types";
+import { NonEmptyArray } from "ts-essentials";
+import { TBase100Probability, TRandomWrapper, TSplitSeed } from "types";
 
 const MULTIPLIER: bigint = 6364136223846793005n;
 const BITS_IN_INT32 = BITS_IN_UINT32;
 
-type TPCG32EncodedState = THexString_LengthMod16 & {
+export type TPCG32EncodedState = THexString_LengthMod16 & {
   __type: "PCG32EncodedState";
 };
-type TPCG32State = [s: bigint, inc: bigint]; // uint64
+export type TPCG32State = [s: bigint, inc: bigint]; // uint64
 
 function nextPCG32(state: TPCG32State): void {
   const oldState: bigint = state[0];
@@ -174,7 +176,7 @@ export {
   uint32 as uint32,
 };
 
-export default class PCG32 {
+export default class PCG32 implements TRandomWrapper {
   private state: TPCG32State;
 
   constructor(seed: string | TPCG32State) {
@@ -217,5 +219,148 @@ export default class PCG32 {
 
   static fromEncoding(encoding: TPCG32EncodedState): PCG32 {
     return new PCG32(decodePCG32(encoding));
+  }
+
+  /** TRandomWrapper methods */
+
+  advanceRNG(times: number = 1): void {
+    if (times < 1) {
+      return;
+    }
+
+    for (let i = 0; i < times; i++) {
+      nextPCG32(this.state);
+    }
+  }
+
+  randomInt(maxValue: number, minValue: number = 0): number {
+    if (maxValue - minValue === 0) {
+      return maxValue;
+    }
+
+    return range(this.state, maxValue, minValue);
+  }
+
+  roll(probabilty: TBase100Probability): boolean {
+    if (probabilty >= 100) {
+      return true;
+    } else if (probabilty === 0) {
+      return false;
+    }
+
+    return this.randomInt(100) < probabilty;
+  }
+
+  shuffle<R>(deck: Array<R>): void {
+    if (deck.length === 0) {
+      return;
+    }
+
+    // https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle#The_modern_algorithm
+    for (let i = 0; i < deck.length - 1; i++) {
+      const swapIndex = range(this.state, deck.length, i);
+
+      const temp = deck[i]!;
+      deck[i] = deck[swapIndex]!;
+      deck[swapIndex] = temp;
+    }
+  }
+
+  pickOne<R>(choices: Readonly<NonEmptyArray<R>>): R {
+    if (choices.length === 1) {
+      return choices[0];
+    }
+
+    const pickIndex = this.randomInt(choices.length);
+    return choices[pickIndex]!;
+  }
+
+  weightedPickOne<R>(choices: Readonly<NonEmptyArray<[number, R]>>): R {
+    if (choices.length === 1) {
+      return choices[0][1];
+    }
+
+    let total = 0;
+    for (const choice of choices) {
+      total += choice[0];
+    }
+
+    const pickTotal = this.randomInt(Math.ceil(total));
+
+    total = 0;
+    for (const choice of choices) {
+      if (total >= pickTotal) {
+        return choice[1];
+      }
+      total += choice[0];
+    }
+
+    return choices[0][1];
+  }
+
+  sampleUniquely<R>(population: ReadonlyArray<R>, n: number): Array<R> {
+    if (population.length === 0 || n === 0) {
+      return [];
+    }
+
+    const limit = Math.min(population.length, n);
+
+    const samples: Array<R> = [];
+    const rawSamples: { [index: number]: R } = {};
+    for (let i = 0; i < limit; i++) {
+      const sampleIndex = range(this.state, population.length, i);
+
+      const temp = i in rawSamples ? rawSamples[i]! : population[i]!;
+      rawSamples[i] =
+        sampleIndex in rawSamples
+          ? rawSamples[sampleIndex]!
+          : population[sampleIndex]!;
+      rawSamples[sampleIndex] = temp;
+
+      const sample = i in rawSamples ? rawSamples[i]! : population[i]!;
+      samples.push(sample);
+    }
+
+    return samples;
+  }
+
+  *sampleUniquelyGenerator<R>(
+    population: ReadonlyArray<R>
+  ): Generator<R, void, void> {
+    // Note, don't need to pass through seed state since it's modified in place.
+    const rawSamples: { [index: number]: R } = {};
+    for (let i = 0; i < population.length; i++) {
+      const sampleIndex = range(this.state, population.length, i);
+
+      const temp = i in rawSamples ? rawSamples[i]! : population[i]!;
+      rawSamples[i] =
+        sampleIndex in rawSamples
+          ? rawSamples[sampleIndex]!
+          : population[sampleIndex]!;
+      rawSamples[sampleIndex] = temp;
+
+      yield i in rawSamples ? rawSamples[i]! : population[i]!;
+    }
+  }
+
+  sampleNonUniquely<R>(population: ReadonlyArray<R>, n: number): Array<R> {
+    if (population.length === 0 || n === 0) {
+      return [];
+    }
+
+    const samples: Array<R> = [];
+    for (let i = 0; i < n; i++) {
+      const sampleIndex = range(this.state, population.length);
+
+      samples.push(population[sampleIndex]!);
+    }
+
+    return samples;
+  }
+
+  splitSeed(): TSplitSeed {
+    const splitState = split(this.state);
+
+    return encodePCG32(splitState) as unknown as TSplitSeed;
   }
 }

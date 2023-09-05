@@ -30,13 +30,17 @@ import {
   TWO_RAISED_TO_NEGATIVE_53,
 } from "@scalene-scales/scalene-binary/dist/lib/constants";
 import { THexString_LengthMod8 } from "@scalene-scales/scalene-binary/dist/types";
+import { NonEmptyArray } from "ts-essentials";
+import { TBase100Probability, TRandomWrapper, TSplitSeed } from "types";
 
-type TAleaEncodedState = THexString_LengthMod8 & { __type: "AleaEncodedState" };
+export type TAleaEncodedState = THexString_LengthMod8 & {
+  __type: "AleaEncodedState";
+};
 
 // Note, the state is represented by 3 32 bit decimals and a 32 bit uint.
 // Because 32 bit decimals take more bits to represent than 32 bit floats,
 // they either need to be converted to uint32 for encoding or stored as float64.
-type TAleaState = [s0: number, s1: number, s2: number, c: number];
+export type TAleaState = [s0: number, s1: number, s2: number, c: number];
 
 const N = 0xefc8249d;
 const SPACE_CHAR_CODE = 32;
@@ -240,7 +244,7 @@ export {
   uint32 as uint32,
 };
 
-export default class Alea {
+export default class Alea implements TRandomWrapper {
   private state: TAleaState;
 
   constructor(seed: string | TAleaState) {
@@ -283,5 +287,148 @@ export default class Alea {
 
   static fromEncoding(encoding: TAleaEncodedState): Alea {
     return new Alea(decodeAlea(encoding));
+  }
+
+  /** TRandomWrapper methods */
+
+  advanceRNG(times: number = 1): void {
+    if (times < 1) {
+      return;
+    }
+
+    for (let i = 0; i < times; i++) {
+      nextAlea(this.state);
+    }
+  }
+
+  randomInt(maxValue: number, minValue: number = 0): number {
+    if (maxValue - minValue === 0) {
+      return maxValue;
+    }
+
+    return range(this.state, maxValue, minValue);
+  }
+
+  roll(probabilty: TBase100Probability): boolean {
+    if (probabilty >= 100) {
+      return true;
+    } else if (probabilty === 0) {
+      return false;
+    }
+
+    return this.randomInt(100) < probabilty;
+  }
+
+  shuffle<R>(deck: Array<R>): void {
+    if (deck.length === 0) {
+      return;
+    }
+
+    // https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle#The_modern_algorithm
+    for (let i = 0; i < deck.length - 1; i++) {
+      const swapIndex = range(this.state, deck.length, i);
+
+      const temp = deck[i]!;
+      deck[i] = deck[swapIndex]!;
+      deck[swapIndex] = temp;
+    }
+  }
+
+  pickOne<R>(choices: Readonly<NonEmptyArray<R>>): R {
+    if (choices.length === 1) {
+      return choices[0];
+    }
+
+    const pickIndex = this.randomInt(choices.length);
+    return choices[pickIndex]!;
+  }
+
+  weightedPickOne<R>(choices: Readonly<NonEmptyArray<[number, R]>>): R {
+    if (choices.length === 1) {
+      return choices[0][1];
+    }
+
+    let total = 0;
+    for (const choice of choices) {
+      total += choice[0];
+    }
+
+    const pickTotal = this.randomInt(Math.ceil(total));
+
+    total = 0;
+    for (const choice of choices) {
+      if (total >= pickTotal) {
+        return choice[1];
+      }
+      total += choice[0];
+    }
+
+    return choices[0][1];
+  }
+
+  sampleUniquely<R>(population: ReadonlyArray<R>, n: number): Array<R> {
+    if (population.length === 0 || n === 0) {
+      return [];
+    }
+
+    const limit = Math.min(population.length, n);
+
+    const samples: Array<R> = [];
+    const rawSamples: { [index: number]: R } = {};
+    for (let i = 0; i < limit; i++) {
+      const sampleIndex = range(this.state, population.length, i);
+
+      const temp = i in rawSamples ? rawSamples[i]! : population[i]!;
+      rawSamples[i] =
+        sampleIndex in rawSamples
+          ? rawSamples[sampleIndex]!
+          : population[sampleIndex]!;
+      rawSamples[sampleIndex] = temp;
+
+      const sample = i in rawSamples ? rawSamples[i]! : population[i]!;
+      samples.push(sample);
+    }
+
+    return samples;
+  }
+
+  *sampleUniquelyGenerator<R>(
+    population: ReadonlyArray<R>
+  ): Generator<R, void, void> {
+    // Note, don't need to pass through seed state since it's modified in place.
+    const rawSamples: { [index: number]: R } = {};
+    for (let i = 0; i < population.length; i++) {
+      const sampleIndex = range(this.state, population.length, i);
+
+      const temp = i in rawSamples ? rawSamples[i]! : population[i]!;
+      rawSamples[i] =
+        sampleIndex in rawSamples
+          ? rawSamples[sampleIndex]!
+          : population[sampleIndex]!;
+      rawSamples[sampleIndex] = temp;
+
+      yield i in rawSamples ? rawSamples[i]! : population[i]!;
+    }
+  }
+
+  sampleNonUniquely<R>(population: ReadonlyArray<R>, n: number): Array<R> {
+    if (population.length === 0 || n === 0) {
+      return [];
+    }
+
+    const samples: Array<R> = [];
+    for (let i = 0; i < n; i++) {
+      const sampleIndex = range(this.state, population.length);
+
+      samples.push(population[sampleIndex]!);
+    }
+
+    return samples;
+  }
+
+  splitSeed(): TSplitSeed {
+    const splitState = split(this.state);
+
+    return encodeAlea(splitState) as unknown as TSplitSeed;
   }
 }

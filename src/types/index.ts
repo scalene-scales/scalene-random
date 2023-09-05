@@ -10,6 +10,8 @@ export type TSeed = TNextSeed | TSplitSeed;
 export interface TRandomWrapper {
   advanceRNG(times?: number): void;
 
+  random(): number;
+
   randomInt(maxValue: number, minValue?: number): number;
 
   roll(probabilty: TBase100Probability): boolean;

@@ -1,7 +1,6 @@
-import { THexString_LengthMod8 } from "@scalene-scales/scalene-binary/dist/types";
 import { NonEmptyArray } from "ts-essentials";
 import { v4 as uuidv4 } from "uuid";
-import * as PRNG from "../prng/Alea";
+import Alea, * as PRNG from "../prng/Alea";
 import {
   TBase100Probability,
   TInitialSeed,
@@ -11,8 +10,8 @@ import {
   TSplitSeed,
 } from "../types";
 
-type TEncodedState = THexString_LengthMod8 & { __type: "AleaEncodedState" }; // TAleaEncodedState
-type TPRNGState = [s0: number, s1: number, s2: number, c: number]; // TAleaState
+type TEncodedState = PRNG.TAleaEncodedState;
+type TPRNGState = PRNG.TAleaState;
 
 function decode(seed: TSeed): TPRNGState {
   return PRNG.decode(seed as unknown as TEncodedState);
@@ -55,6 +54,13 @@ function advanceRNG(seed: TSeed, times: number = 1): TNextSeed {
   }
 
   return encodeNextSeed(prng);
+}
+
+function random(seed: TSeed): [TNextSeed, number] {
+  const prng = decode(seed);
+  const value = PRNG.random(prng);
+
+  return [encodeNextSeed(prng), value];
 }
 
 function randomInt(
@@ -111,7 +117,7 @@ function weightedPickOne<T>(
   }
 
   // Note, for non integer weights this probably biases toward the beginning.
-  return [newSeed, choices[0]![1]];
+  return [newSeed, choices[0][1]];
 }
 
 function sampleNonUniquely<T>(
@@ -198,6 +204,12 @@ class Wrapper<T extends { seed: TSeed }> implements TRandomWrapper {
     }
 
     this.#wrapped.seed = advanceRNG(this.#wrapped.seed, times);
+  }
+
+  random(): number {
+    const [nextSeed, value] = random(this.#wrapped.seed);
+    this.#wrapped.seed = nextSeed;
+    return value;
   }
 
   randomInt(maxValue: number, minValue: number = 0): number {
@@ -301,7 +313,7 @@ function wrap<T extends { seed: TSeed }>(wrapped: T): TRandomWrapper {
 }
 
 function wrapper(splitSeed: TSplitSeed): TRandomWrapper {
-  return new Wrapper({ seed: splitSeed });
+  return Alea.fromEncoding(splitSeed as unknown as TEncodedState);
 }
 
 const RandomUtils = {
@@ -318,6 +330,7 @@ const RandomUtils = {
   wrapper,
   shuffle,
   randomInt,
+  random,
 };
 
 export default RandomUtils;
